@@ -1,6 +1,7 @@
 package endpoints
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"sure/metafy/pkg/utils"
@@ -13,6 +14,26 @@ var upgrader = websocket.Upgrader{}
 
 func Connect(w http.ResponseWriter, r *http.Request) {
 	utils.LogInboundRequest(w, r)
+
+	headersJson, err := json.Marshal(r.Header)
+	if err != nil {
+		log.Printf("error marshalling headers: %v", err)
+		return
+	}
+
+	log.Printf("headers: [%s]", string(headersJson))
+
+	log.Printf("proto: [%s]", r.Proto)
+
+	trailersJson, err := json.Marshal(r.Trailer)
+	if err != nil {
+		log.Printf("error marshalling trailers: %v", err)
+		return
+	}
+
+	log.Printf("trailers: [%s]", string(trailersJson))
+
+	log.Print(r.TransferEncoding)
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
