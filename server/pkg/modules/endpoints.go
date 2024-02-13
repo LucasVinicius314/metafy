@@ -2,8 +2,11 @@ package endpoints
 
 import (
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
+	"strings"
+	"sure/metafy/pkg/models"
 	"sure/metafy/pkg/utils"
 
 	"github.com/google/uuid"
@@ -15,32 +18,25 @@ var upgrader = websocket.Upgrader{}
 func Connect(w http.ResponseWriter, r *http.Request) {
 	utils.LogInboundRequest(w, r)
 
-	headersJson, err := json.Marshal(r.Header)
-	if err != nil {
-		log.Printf("error marshalling headers: %v", err)
+	token := ""
+	for _, value := range r.Header.Values("Sec-Websocket-Protocol") {
+		if strings.HasPrefix(value, "token-") {
+			token = value[5:]
+			break
+		}
+	}
+
+	if token == "" {
+		utils.SendMessage(w, 400, "missing token")
 		return
 	}
 
-	log.Printf("headers: [%s]", string(headersJson))
-
-	log.Printf("proto: [%s]", r.Proto)
-
-	trailersJson, err := json.Marshal(r.Trailer)
-	if err != nil {
-		log.Printf("error marshalling trailers: %v", err)
-		return
-	}
-
-	log.Printf("trailers: [%s]", string(trailersJson))
-
-	log.Print(r.TransferEncoding)
+	log.Printf("token: [%s]", token)
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("error upgrading: %v", err)
-
-		w.WriteHeader(500)
-		w.Write([]byte("500 internal server error"))
+		utils.SendMessage(w, 500, "internal server error")
 		return
 	}
 	defer conn.Close()
@@ -48,6 +44,7 @@ func Connect(w http.ResponseWriter, r *http.Request) {
 	connId, err := uuid.NewUUID()
 	if err != nil {
 		log.Printf("error generating connection uuid: %v", err)
+		utils.SendMessage(w, 500, "internal server error")
 		return
 	}
 
@@ -76,15 +73,36 @@ func Connect(w http.ResponseWriter, r *http.Request) {
 }
 
 func Health(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("ok"))
+	utils.SendMessage(w, 200, "ok")
 }
 
 func Login(w http.ResponseWriter, r *http.Request) {
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Printf("error reading body: %v", err)
+		utils.SendMessage(w, 400, "invalid body")
+		return
+	}
+	defer r.Body.Close()
+
+	request := &models.LoginRequest{}
+	err = json.Unmarshal(bodyBytes, request)
+	if err != nil {
+		log.Printf("error reading body json: %v", err)
+		utils.SendMessage(w, 400, "invalid body json")
+		return
+	}
+
 	// TODO: login
-	w.Write([]byte("ok"))
+	if request.Email == "lorem" && request.Password == "ipsum" {
+		utils.SendMessage(w, 200, "sample jwt token")
+		return
+	}
+
+	utils.SendMessage(w, 400, "user not found")
 }
 
 func Register(w http.ResponseWriter, r *http.Request) {
 	// TODO: register
-	w.Write([]byte("ok"))
+	utils.SendMessage(w, 200, "ok")
 }

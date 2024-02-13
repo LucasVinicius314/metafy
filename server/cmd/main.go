@@ -55,8 +55,7 @@ func main() {
 				}
 			}
 
-			w.WriteHeader(405)
-			w.Write([]byte("405 method not allowed"))
+			utils.SendMessage(w, 405, "method not allowed")
 		})
 	}
 
