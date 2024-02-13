@@ -5,54 +5,53 @@ import (
 	"log"
 	"net/http"
 	"os"
-
-	"github.com/gorilla/websocket"
+	"sure/metafy/pkg/models"
+	endpoints "sure/metafy/pkg/modules"
+	"sure/metafy/pkg/utils"
 )
 
-type ApiRoute struct {
-	Path string
-	Get  func(w http.ResponseWriter, r *http.Request)
-	Post func(w http.ResponseWriter, r *http.Request)
+var routes = []models.ApiRoute{
+	{
+		Path: "/api/health",
+		Get:  endpoints.Health,
+	},
+	{
+		Path: "/api/login",
+		Post: endpoints.Login,
+	},
+	{
+		Path: "/api/register",
+		Post: endpoints.Register,
+	},
 }
 
-var upgrader = websocket.Upgrader{}
-
 func main() {
-	routes := []ApiRoute{
-		{
-			Path: "/api/health",
-			Get: func(w http.ResponseWriter, r *http.Request) {
-				w.Write([]byte("ok"))
-			},
-		},
-		{
-			Path: "/api/login",
-			Post: func(w http.ResponseWriter, r *http.Request) {
-				w.Write([]byte("ok"))
-			},
-		},
-		{
-			Path: "/api/register",
-			Post: func(w http.ResponseWriter, r *http.Request) {
-				w.Write([]byte("ok"))
-			},
-		},
-	}
-
 	http.Handle("/", http.FileServer(http.Dir("../public")))
 
 	for _, route := range routes {
 		http.HandleFunc(route.Path, func(w http.ResponseWriter, r *http.Request) {
-			logInboundRequest(w, r)
+			utils.LogInboundRequest(w, r)
 
 			switch r.Method {
+			case "DELETE":
+				if route.Delete != nil {
+					route.Delete(w, r)
+				}
 			case "GET":
 				if route.Get != nil {
 					route.Get(w, r)
 				}
+			case "PATCH":
+				if route.Patch != nil {
+					route.Patch(w, r)
+				}
 			case "POST":
 				if route.Post != nil {
 					route.Post(w, r)
+				}
+			case "PUT":
+				if route.Put != nil {
+					route.Put(w, r)
 				}
 			}
 
@@ -61,40 +60,7 @@ func main() {
 		})
 	}
 
-	http.HandleFunc("/api/connect", func(w http.ResponseWriter, r *http.Request) {
-		logInboundRequest(w, r)
+	http.HandleFunc("/api/connect", endpoints.Connect)
 
-		conn, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			log.Println("upgrade failed: ", err)
-
-			w.WriteHeader(500)
-			w.Write([]byte("500 internal server error"))
-			return
-		}
-		defer conn.Close()
-
-		for {
-			mt, message, err := conn.ReadMessage()
-			if err != nil {
-				log.Println("read failed:", err)
-				break
-			}
-
-			log.Println(string(message))
-
-			err = conn.WriteMessage(mt, message)
-			if err != nil {
-				log.Println("write failed:", err)
-				break
-			}
-		}
-	})
-
-	err := http.ListenAndServe(fmt.Sprintf(":%s", os.Getenv("PORT")), nil)
-	log.Println(err)
-}
-
-func logInboundRequest(w http.ResponseWriter, r *http.Request) {
-	log.Printf("%s %s", r.Method, r.URL.Path)
+	log.Println(http.ListenAndServe(fmt.Sprintf(":%s", os.Getenv("PORT")), nil))
 }
