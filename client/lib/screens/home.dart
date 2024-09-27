@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:metafy/env.dart';
-import 'package:web_socket_client/web_socket_client.dart';
+import 'package:metafy/blocs/main/main_bloc.dart';
+import 'package:metafy/blocs/main/main_event.dart';
+import 'package:metafy/utils/constants.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,41 +13,19 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final _wsChannel =
-      WebSocket(Uri.parse('ws://${Env.apiAuthority}/api/connect'));
-
-  var _sentAt = 0;
+  final _mainBloc = MainBloc();
 
   @override
   void initState() {
     super.initState();
 
-    _wsChannel.messages.listen((event) {
-      final message = event as String;
-
-      final now = DateTime.now().millisecondsSinceEpoch;
-
-      print(message);
-
-      print('${(now - _sentAt).toStringAsFixed(0)} ms');
-
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(message)));
-    });
+    _mainBloc.add(ConnectMainEvent(token: 'fh98h9g854high'));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          setState(() {
-            _sentAt = DateTime.now().millisecondsSinceEpoch;
-          });
-
-          _wsChannel.send('hello world');
-        },
-      ),
+      appBar: AppBar(title: const Text(Constants.appName)),
     );
   }
 }
